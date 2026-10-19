@@ -1,0 +1,31 @@
+# shell/zshrc - devtools for zsh. install.sh appends one line to ~/.zshrc that
+# sources this file, so Oh My Zsh / powerlevel10k keep owning ~/.zshrc and the
+# prompt. Loads the same PATH, environment, aliases and overlay as bashrc; the
+# bash prompt (prompt.sh) is skipped.
+
+[[ -o interactive ]] || return 0
+
+# Repo root from this file's real path (${(%):-%x} = this file, :A resolves symlinks).
+DEVTOOLS_ROOT="${DEVTOOLS_ROOT:-${${(%):-%x}:A:h:h}}"
+export DEVTOOLS_ROOT
+. "$DEVTOOLS_ROOT/shell/env.sh"        # PATH, DOCKER, overlay location; its completions are bash-only
+
+# --- completions (only once compinit has run, e.g. under Oh My Zsh) -------------
+if (( $+functions[compdef] )); then
+  if command -v kubectl >/dev/null 2>&1; then
+    # same per-version cache as env.sh, zsh flavour
+    _kc="${XDG_CACHE_HOME:-$HOME/.cache}/devtools/kubectl-completion-$(kubectl version --client -o json 2>/dev/null | sed -n 's/.*"gitVersion": *"\([^"]*\)".*/\1/p').zsh"
+    if [ ! -s "$_kc" ]; then mkdir -p "${_kc:h}" && kubectl completion zsh > "$_kc" 2>/dev/null; fi
+    [ -s "$_kc" ] && source "$_kc" && compdef k=kubectl
+    unset _kc
+  fi
+  # bash completion files: bashcompinit provides complete/compgen; emulate ksh makes the
+  # functions they define run with bash-like 0-based arrays.
+  autoload -U +X bashcompinit && bashcompinit
+  for _f in "$DEVTOOLS_ROOT"/shell/completions/*.completion(N); do emulate ksh -c "source ${(q)_f}"; done
+  unset _f
+fi
+
+. "$DEVTOOLS_ROOT/shell/aliases.sh"
+for _f in "$DEVTOOLS_OVERLAY"/shell/*.sh(N); do . "$_f"; done   # overlay, see docs/OVERLAY.md
+unset _f

@@ -1,0 +1,29 @@
+# bash completion for cron2cli: completes option names, namespaces and cronjob names.
+_cron2cli() {
+  local cur prev opts ns
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  opts="-h --help -i --init -t --name -m --image -n --namespace -r --command -c --cluster -d --dry-run"
+
+  # namespace given earlier on the line?
+  local i
+  for ((i = 1; i < COMP_CWORD; i++)); do
+    case "${COMP_WORDS[i]}" in -n|--namespace) ns="${COMP_WORDS[i+1]}";; esac
+  done
+
+  case "$prev" in
+    -n|--namespace)
+      COMPREPLY=( $(compgen -W "$(kubectl get namespaces -o name 2>/dev/null | sed 's#namespace/##')" -- "$cur") ); return;;
+    -c|--cluster)
+      COMPREPLY=( $(compgen -W "$(kubectl config get-clusters 2>/dev/null | tail -n +2)" -- "$cur") ); return;;
+    -t|--name|-m|--image|-r|--command) return;;
+  esac
+
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=( $(compgen -W "$opts" -- "$cur") ); return
+  fi
+  COMPREPLY=( $(compgen -W "$(kubectl get cronjobs ${ns:+-n $ns} -o name 2>/dev/null | sed 's#cronjob.batch/##')" -- "$cur") )
+}
+complete -F _cron2cli cron2cli
+complete -F _cron2cli cron2job

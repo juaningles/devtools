@@ -1,0 +1,89 @@
+#!/bin/bash
+# k8stool - find AKS clusters across subscriptions and (with --install) fetch
+# kubeconfig credentials for each, reporting PASS/FAIL per step.
+#
+#   k8stool --query 'myorg-.*-dev'             list clusters in matching subscriptions (dry run)
+#   k8stool --query dev --name eastus --install  install creds for matching clusters only
+#   k8stool <sub-id> [<sub-id> ...] --install
+set -uo pipefail
+
+INSTALL_FLAG=false
+SEARCH_PATTERN=""
+AKS_PATTERN=""
+SUBS=()
+
+print_usage() {
+  cat <<EOF
+Usage: $(basename "$0") [options] [sub-id ...]
+Options:
+  --install              run the steps (default is a dry run that prints them)
+  --query PATTERN        add subscriptions whose name matches PATTERN (regex)
+  --name PATTERN         only clusters whose name matches PATTERN (regex)
+  --help
+Requires: az, jq, kubectl, kubelogin
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --install) INSTALL_FLAG=true; shift;;
+    --help|-h) print_usage; exit 0;;
+    --query)
+      [[ -z "${2:-}" ]] && { echo "ERROR: --query needs a pattern"; print_usage; exit 2; }
+      SEARCH_PATTERN="$2"; shift 2;;
+    --name)
+      [[ -z "${2:-}" ]] && { echo "ERROR: --name needs a pattern"; print_usage; exit 2; }
+      AKS_PATTERN="$2"; shift 2;;
+    -*) echo "Unknown option: $1"; print_usage; exit 1;;
+    *) SUBS+=("$1"); shift;;
+  esac
+done
+
+for t in az jq kubectl kubelogin; do command -v "$t" >/dev/null 2>&1 || { echo "ERROR: $t not found"; exit 1; }; done
+
+if [[ -n "$SEARCH_PATTERN" ]]; then
+  mapfile -t found < <(az account list -o json | jq -r --arg p "$SEARCH_PATTERN" '.[] | select(.name | test($p)) | .id')
+  SUBS+=("${found[@]}")
+fi
+[[ ${#SUBS[@]} -eq 0 ]] && { echo "ERROR: no subscriptions given or matched"; print_usage; exit 1; }
+
+GREEN=$'\033[0;32m' RED=$'\033[0;31m' BLUE=$'\033[0;34m' RESET=$'\033[0m'
+
+banner() {
+  echo "${BLUE}#========================================================================${RESET}"
+  echo "${BLUE}# $1${RESET}"
+  echo "${BLUE}#========================================================================${RESET}"
+}
+
+# run_test "command string": in dry-run mode just print it; otherwise run and report
+run_test() {
+  if $INSTALL_FLAG; then
+    local result
+    result=$(bash -c "$1" 2>&1)
+    if [[ $? -eq 0 ]]; then echo -e "${GREEN}PASS${RESET}\t$1"; else echo -e "${RED}FAIL${RESET}\t$1"; fi
+    [[ -n "$result" ]] && echo "$result"
+  else
+    echo "$1"
+  fi
+}
+
+for sub in "${SUBS[@]}"; do
+  az aks list --subscription "$sub" -o json |
+    jq -c --arg p "$AKS_PATTERN" '.[] | select(.name | test($p)) | {name, fqdn, pfqdn: .privateFqdn, rsrc: .resourceGroup, sub: (.id | capture("/subscriptions/(?<s>[^/]+)/").s)}'
+done | while read -r item; do
+  name=$(jq -r .name <<<"$item"); fqdn=$(jq -r .fqdn <<<"$item"); pfqdn=$(jq -r .pfqdn <<<"$item")
+  sub=$(jq -r .sub <<<"$item");   rsrc=$(jq -r .rsrc <<<"$item")
+
+  banner "$name"
+  [[ "$fqdn" != null ]] && run_test "nslookup $fqdn"
+  if [[ -z "$pfqdn" || "$pfqdn" == null ]]; then
+    echo -e "${BLUE}SKIPPED${RESET}\tprivate fqdn not set"
+  else
+    run_test "nslookup $pfqdn"
+  fi
+  run_test "az account set --subscription $sub"
+  run_test "az aks get-credentials --resource-group $rsrc --name $name --overwrite-existing"
+  run_test "kubelogin convert-kubeconfig -l azurecli"
+  run_test "kubectl get nodes"
+  echo
+done

@@ -1,0 +1,104 @@
+#!/bin/bash
+# cron2cli - create an interactive Job from a CronJob's pod spec (main or init
+# container), with the command replaced by an idle watchdog so you can exec in.
+set -uo pipefail
+
+CRONJOB_NAME=""
+NAMESPACE=""
+CLUSTER=""
+APPLY=true
+INIT_CONTAINER=false
+CUSTOM_NAME=""
+CUSTOM_IMAGE=""
+CUSTOM_COMMAND=""
+
+print_usage() {
+  cat <<EOF
+Usage: $(basename "$0") [OPTIONS] CRONJOB_NAME
+
+Create a Kubernetes job from a cronjob with customizable options.
+
+Options:
+    -h, --help              Show this help message
+    -i, --init              Create job from init container instead of main container
+    -t, --name NAME         Override the generated job name
+    -m, --image IMAGE       Override the container image
+    -n, --namespace NS      Kubernetes namespace
+    -r, --command CMD       Override the container command (split on whitespace)
+    -c, --cluster CLUSTER   Kubernetes cluster name
+    -d, --dry-run           Don't apply, output yaml instead
+
+Default command keeps the pod alive while ~/.bash_history is touched
+(i.e. while someone is exec'd in) and exits after 30 min idle.
+
+Examples:
+    $(basename "$0") my-cronjob -n prod -c prod-cluster
+    $(basename "$0") my-cronjob -i -t custom-job -m nginx:latest
+    $(basename "$0") my-cronjob --command "sleep 3600"
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -h|--help)      print_usage; exit 0;;
+    -i|--init)      INIT_CONTAINER=true; shift;;
+    -t|--name)      CUSTOM_NAME="$2"; shift 2;;
+    -m|--image)     CUSTOM_IMAGE="$2"; shift 2;;
+    -n|--namespace) NAMESPACE="$2"; shift 2;;
+    -c|--cluster)   CLUSTER="$2"; shift 2;;
+    -r|--command)   CUSTOM_COMMAND="$2"; shift 2;;
+    -d|--dry-run)   APPLY=false; shift;;
+    -*)             echo "Error: unknown option: $1"; print_usage; exit 1;;
+    *)
+      if [[ -z "$CRONJOB_NAME" ]]; then CRONJOB_NAME="$1"; else echo "Error: Unexpected argument: $1"; print_usage; exit 1; fi
+      shift;;
+  esac
+done
+
+[[ -z "$CRONJOB_NAME" ]] && { echo "Error: No cronjob name provided."; print_usage; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "Error: jq is required (apt install jq / winget install jqlang.jq)"; exit 1; }
+
+cronjob_name="${CRONJOB_NAME##*/}"   # accept cronjob/name or cronjob.batch/name
+
+if [[ -z "$CUSTOM_NAME" ]]; then
+  stem=$(sed -E 's/^(cronjob|cj[^-]*)-//' <<<"$cronjob_name")
+  if $INIT_CONTAINER; then job_name="cli-initj-$stem-$(date +%s)"; else job_name="cli-mainj-$stem-$(date +%s)"; fi
+else
+  job_name="$CUSTOM_NAME"
+fi
+
+KARGS=()
+[[ -n "$NAMESPACE" ]] && KARGS+=(--namespace "$NAMESPACE")
+[[ -n "$CLUSTER" ]]   && KARGS+=(--cluster "$CLUSTER")
+
+# container selection
+if $INIT_CONTAINER; then
+  CONTAINER_FILTER='
+    if .spec.template.spec.initContainers then
+      .spec.template.spec.containers = .spec.template.spec.initContainers |
+      del(.spec.template.spec.initContainers)
+    else . end |
+    del(.spec.template.spec.containers[0].args)'
+else
+  CONTAINER_FILTER='del(.spec.template.spec.containers[0].args) | del(.spec.template.spec.initContainers)'
+fi
+
+# command: either the user's (whitespace-split, passed to jq as positional args,
+# so no shell eval and no quoting problems) or the idle watchdog
+if [[ -n "$CUSTOM_COMMAND" ]]; then
+  read -r -a cmd_array <<<"$CUSTOM_COMMAND"
+else
+  cmd_array=(bash -c 'touch ~/.bash_history; while true; do tdiff=$(( $(date +%s) - $(stat -c %Y ~/.bash_history) )); echo $tdiff >> /tmp/watchtimer.log; if [ $tdiff -gt 1800 ]; then break; fi; sleep 25; done')
+fi
+COMMAND_FILTER='.spec.template.spec.containers[0].command = $ARGS.positional | del(.spec.template.spec.containers[0].args)'
+
+IMAGE_FILTER='.'
+[[ -n "$CUSTOM_IMAGE" ]] && IMAGE_FILTER='.spec.template.spec.containers[0].image = $img'
+
+JQ_FILTER="$CONTAINER_FILTER | $IMAGE_FILTER | $COMMAND_FILTER"
+
+if $APPLY; then APPLY_ARGS=(); else APPLY_ARGS=(--dry-run=client -o yaml); fi
+
+kubectl create job "$job_name" --from="cronjob/$cronjob_name" -o json --dry-run=client "${KARGS[@]}" |
+  jq --arg img "$CUSTOM_IMAGE" "$JQ_FILTER" --args -- "${cmd_array[@]}" |
+  kubectl apply -f - "${APPLY_ARGS[@]}" "${KARGS[@]}"

@@ -1,0 +1,21 @@
+{
+  "_comment": "Windows tool manifest consumed by install.ps1. 'pin' installs that exact version and is never auto-upgraded; omit it for latest. IDs verified with 'winget search --id <id> --exact' on 2026-10-18.",
+  "tools": [
+    { "name": "jq",        "winget": "jqlang.jq",                 "scope": "user" },
+    { "name": "miller",    "winget": "Miller.Miller",             "scope": "user", "note": "provides mlr for csv2json" },
+    { "name": "yq",        "winget": "MikeFarah.yq",              "scope": "user" },
+    { "name": "uv",        "winget": "astral-sh.uv",              "scope": "user", "note": "or: uv self update" },
+    { "name": "kubectl",   "winget": "Kubernetes.kubectl" },
+    { "name": "kubelogin", "winget": "Microsoft.Azure.Kubelogin" },
+    { "name": "helm",      "winget": "Helm.Helm",                 "note": "Helm 4 is current; pin 3.x here if charts break: \"pin\": \"3.22.1\"" },
+    { "name": "azcopy",    "winget": "Microsoft.Azure.AZCopy.10" },
+    { "name": "az",        "winget": "Microsoft.AzureCLI" },
+    { "name": "podman",    "winget": "RedHat.Podman" },
+    { "name": "dive",      "winget": "wagoodman.dive",            "scope": "user" }
+  ],
+  "_disabled_comment": "install.ps1 reads only .tools, so entries here are NOT installed. Move an entry back into 'tools' to re-enable it.",
+  "_disabled": [
+    { "name": "make",      "winget": "ezwinports.make",           "pin": "4.4.1",
+      "note": "DISABLED 2026-10-18 pending decision. Windows make existed to run docker-driving Makefiles against Docker Desktop when Docker in WSL was unreliable. Both Windows podman and devnode now work. ezwinports 4.4.1 was dry-run tested on 2026-10-18 against a set of real Makefiles and passes; bin-win/make.cmd puts Git's sh on PATH for it. To enable, move this object back into 'tools' and run install.ps1 -SkipPath. PINNED to 4.4.1 (ezwinports): GnuWin32.Make 3.81 (previously vendored in C:\\code\\bin) was blocked by endpoint application control on 2026-10-18. 4.x differs from 3.81 in a few places (the '!=' shell assignment, '$(file ...)', stricter recipe parsing, a different sh), so re-test any Makefile that misbehaves. Bump the pin deliberately; never leave it floating." }
+  ]
+}
