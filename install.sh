@@ -2,7 +2,7 @@
 # install.sh - set up devtools in WSL / Linux / a container.
 #
 #   ~/devtools/install.sh                 # link ~/.bashrc, hook ~/.zshrc, make bin/ executable
-#   ~/devtools/install.sh --overlay DIR   # also link DIR as the overlay (docs/OVERLAY.md)
+#   ~/devtools/install.sh --overlay DIR   # also link DIR as an overlay (repeatable; docs/OVERLAY.md)
 #   ~/devtools/install.sh --tools         # bare Linux hosts only: jq, miller, make, uv, kubectl, kubelogin, yq, helm
 #   install.sh --from /mnt/c/code/devtools [--dest ~/devtools]   # bootstrap: clone first
 #
@@ -13,13 +13,14 @@
 # origin for every WSL clone; sync.sh pulls from it and can push back.
 set -euo pipefail
 
-FROM="" DEST="$HOME/devtools" TOOLS=no OVERLAY=""
+FROM="" DEST="$HOME/devtools" TOOLS=no OVERLAYS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --from) FROM="$2"; shift 2;;
     --dest) DEST="$2"; shift 2;;
     --tools) TOOLS=yes; shift;;
-    --overlay) OVERLAY="$2"; shift 2;;
+    --overlay) OVERLAYS="$OVERLAYS
+$2"; shift 2;;
     -h|--help) sed -n '2,13p' "$0"; exit 0;;
     *) echo "unknown option: $1" >&2; exit 1;;
   esac
@@ -62,16 +63,22 @@ if [ -L "$HOME/.bash_aliases" ] && readlink "$HOME/.bash_aliases" | grep -q bash
   rm -f "$HOME/.bash_aliases" && echo "removed old ~/.bash_aliases symlink (aliases now come from devtools)"
 fi
 
-# --- overlay -------------------------------------------------------------------------
-if [ -n "$OVERLAY" ]; then
-  OVERLAY="$(cd "$OVERLAY" && pwd)"
-  if [ -e "$ROOT/overlay" ] && [ ! -L "$ROOT/overlay" ]; then
-    echo "overlay: $ROOT/overlay exists and is not a symlink; leaving it alone" >&2
-  else
-    ln -sfn "$OVERLAY" "$ROOT/overlay" && echo "linked $ROOT/overlay -> $OVERLAY"
-  fi
+# --- overlays: one symlink per repo in $ROOT/overlays/<name>, loaded in name order -------
+mkdir -p "$ROOT/overlays"
+if [ -L "$ROOT/overlay" ]; then   # pre-2026-10-20 single link: move it into overlays/
+  _t="$(readlink -f "$ROOT/overlay")"
+  ln -sfn "$_t" "$ROOT/overlays/$(basename "$_t")" && rm -f "$ROOT/overlay" && echo "moved overlay link -> overlays/$(basename "$_t")"
 fi
-[ -d "$ROOT/overlay/bin" ] && chmod +x "$ROOT"/overlay/bin/* 2>/dev/null || true
+printf '%s\n' "$OVERLAYS" | sed '/^$/d' | while IFS= read -r _ov; do
+  _ov="$(cd "$_ov" && pwd)" || continue
+  _link="$ROOT/overlays/$(basename "$_ov")"
+  if [ -e "$_link" ] && [ ! -L "$_link" ]; then
+    echo "overlay: $_link exists and is not a symlink; leaving it alone" >&2
+  else
+    ln -sfn "$_ov" "$_link" && echo "linked $_link -> $_ov"
+  fi
+done
+for _d in "$ROOT"/overlays/*/bin; do [ -d "$_d" ] && chmod +x "$_d"/* 2>/dev/null; done; true
 
 # --- tools -------------------------------------------------------------------------
 if [ "$TOOLS" = yes ]; then

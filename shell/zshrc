@@ -27,5 +27,7 @@ if (( $+functions[compdef] )); then
 fi
 
 . "$DEVTOOLS_ROOT/shell/aliases.sh"
-for _f in "$DEVTOOLS_OVERLAY"/shell/*.sh(N); do . "$_f"; done   # overlay, see docs/OVERLAY.md
-unset _f
+# overlays in order (docs/OVERLAY.md); command substitution splits on IFS in zsh too
+_ifs=$IFS; IFS=$'\n'
+for _o in $(devtools_overlays); do for _f in "$_o"/shell/*.sh(N); do . "$_f"; done; done
+IFS=$_ifs; unset _o _f _ifs

@@ -23,10 +23,10 @@ C:\code\devtools  (Windows clone = origin, receive.denyCurrentBranch=updateInste
 
 - `sync.ps1` (Windows): pulls the hub from its remote if one is configured, then runs `sync.sh` inside every WSL distro that has `~/devtools`, then regenerates shims. `-Wsl name,name` limits it.
 - `sync.sh` / `devtools-sync` (any clone): refuses if the tree is dirty, fetches, fast-forwards, and pushes local commits back to the hub. `--status` only reports ahead/behind.
-- Shell start checks whether the hub has commits this clone (or the overlay) lacks: one `git ls-remote` per repo over `/mnt/c`, about 70 ms, and only when the origin is a local path, so it never touches the network. If so it asks `devtools: update available (devtools) - sync now? [y/N]` (10 s timeout, default no); **y** runs `devtools-sync`. A "no" is remembered for those commits, and later shells print a one-line hint until something newer arrives. `DEVTOOLS_UPDATE_CHECK=hint` only prints, `off` disables it (set it in `~/.bashrc.local` or before the devtools line in `~/.zshrc`). It never syncs without asking.
+- Shell start checks whether the hub has commits this clone (or an overlay) lacks: one `git ls-remote` per repo over `/mnt/c`, about 70 ms, and only when the origin is a local path, so it never touches the network. If so it asks `devtools: update available (devtools) - sync now? [y/N]` (10 s timeout, default no); **y** runs `devtools-sync`. A "no" is remembered for those commits, and later shells print a one-line hint until something newer arrives. `DEVTOOLS_UPDATE_CHECK=hint` only prints, `off` disables it (set it in `~/.bashrc.local` or before the devtools line in `~/.zshrc`). It never syncs without asking.
 - Commit where you edited. Fast-forward only: if two clones diverge, resolve in one of them and sync again.
 - The Windows clone's own `origin` is the hosted repo (GitHub); `sync.ps1` pulls from it first. WSL clones keep pointing at the hub and need no change.
-- An overlay that is a git clone is synced the same way, right after devtools.
+- Every overlay that is a git clone is synced the same way, right after devtools, in load order.
 
 ## tools.json
 

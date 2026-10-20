@@ -1,5 +1,6 @@
-# overlay link (docs/OVERLAY.md); private.* kept ignored so old local files never get committed
+# overlay links (docs/OVERLAY.md); private.* kept ignored so old local files never get committed
 overlay
+overlays/
 private.sh
 private.ps1
 

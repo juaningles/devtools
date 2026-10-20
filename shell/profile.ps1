@@ -19,8 +19,14 @@ function activate {
   . "$venv\Scripts\Activate.ps1"
 }
 
-# overlay (private aliases etc., docs/OVERLAY.md): dot-source its shell\*.ps1
-if (-not $env:DEVTOOLS_OVERLAY) { $env:DEVTOOLS_OVERLAY = Join-Path $env:DEVTOOLS_ROOT 'overlay' }
-if (Test-Path (Join-Path $env:DEVTOOLS_OVERLAY 'shell')) {
-  Get-ChildItem (Join-Path $env:DEVTOOLS_OVERLAY 'shell') -Filter *.ps1 | Sort-Object Name | ForEach-Object { . $_.FullName }
+# overlays (private aliases etc., docs/OVERLAY.md): overlays\* in name order, then the old
+# single overlay link; DEVTOOLS_OVERLAYS (semicolon list) overrides. Dot-source each shell\*.ps1.
+function Get-DevtoolsOverlays {
+  if ($env:DEVTOOLS_OVERLAYS) { return @($env:DEVTOOLS_OVERLAYS -split ';' | Where-Object { $_ }) }
+  $list = @(Get-ChildItem (Join-Path $env:DEVTOOLS_ROOT 'overlays') -Directory -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object FullName)
+  if (Test-Path (Join-Path $env:DEVTOOLS_ROOT 'overlay')) { $list += (Join-Path $env:DEVTOOLS_ROOT 'overlay') }
+  return $list
+}
+foreach ($ov in Get-DevtoolsOverlays) {
+  if (Test-Path (Join-Path $ov 'shell')) { Get-ChildItem (Join-Path $ov 'shell') -Filter *.ps1 | Sort-Object Name | ForEach-Object { . $_.FullName } }
 }

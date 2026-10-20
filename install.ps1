@@ -7,7 +7,7 @@
   .\install.ps1                       # everything except WSL
   .\install.ps1 -Wsl Ubuntu-24.04,devnode
   .\install.ps1 -SkipTools            # just PATH/profile/shims
-  .\install.ps1 -SkipTools -Overlay C:\code\my-overlay   # link an overlay (docs/OVERLAY.md)
+  .\install.ps1 -SkipTools -Overlay ..\my-overlay,..\work-overlay   # link overlays (docs/OVERLAY.md)
 #>
 [CmdletBinding()]
 param(
@@ -15,7 +15,7 @@ param(
   [switch]$SkipPath,
   [switch]$NoDockerShim,
   [string[]]$Wsl = @(),
-  [string]$Overlay
+  [string[]]$Overlay = @()
 )
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
@@ -56,19 +56,31 @@ if (-not $SkipTools) {
   if (Get-Command uv -ErrorAction SilentlyContinue) { uv tool update-shell 2>$null | Out-Null }
 }
 
-# ---------------------------------------------------------------- overlay (junction, no admin needed)
-$overlayLink = Join-Path $Root 'overlay'
-if ($Overlay) {
-  $target = (Resolve-Path $Overlay).Path
-  $item = Get-Item $overlayLink -Force -ErrorAction SilentlyContinue
+# ---------------------------------------------------------------- overlays (junctions, no admin needed)
+# One junction per repo at overlays\<name>, loaded in name order. The pre-2026-10-20 single
+# `overlay` junction is moved into overlays\ on the first run.
+$overlaysDir = Join-Path $Root 'overlays'
+New-Item -ItemType Directory -Force -Path $overlaysDir | Out-Null
+$oldLink = Get-Item (Join-Path $Root 'overlay') -Force -ErrorAction SilentlyContinue
+if ($oldLink -and ($oldLink.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+  $oldTarget = $oldLink.Target | Select-Object -First 1
+  if ($oldTarget) { $Overlay = @($oldTarget) + @($Overlay | Where-Object { $_ }) }
+  cmd /c rmdir "$($oldLink.FullName)" | Out-Null   # the junction only, never the target
+  Write-Host "overlay: moved the single 'overlay' link into overlays\" -ForegroundColor Yellow
+}
+foreach ($ov in @($Overlay | Where-Object { $_ })) {
+  $target = (Resolve-Path $ov).Path
+  $link = Join-Path $overlaysDir (Split-Path -Leaf $target)
+  $item = Get-Item $link -Force -ErrorAction SilentlyContinue
   if ($item -and -not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-    Write-Warning "overlay: $overlayLink exists and is not a link; leaving it alone"
+    Write-Warning "overlay: $link exists and is not a link; leaving it alone"
   } else {
-    if ($item) { cmd /c rmdir "$overlayLink" | Out-Null }   # removes the junction only, never the target
-    New-Item -ItemType Junction -Path $overlayLink -Target $target | Out-Null
-    Write-Host "overlay: $overlayLink -> $target" -ForegroundColor Green
+    if ($item) { cmd /c rmdir "$link" | Out-Null }
+    New-Item -ItemType Junction -Path $link -Target $target | Out-Null
+    Write-Host "overlay: $link -> $target" -ForegroundColor Green
   }
 }
+$overlayBinWin = @(Get-ChildItem $overlaysDir -Directory | Sort-Object Name | ForEach-Object { Join-Path $_.FullName 'bin-win' } | Where-Object { Test-Path $_ })
 
 # ---------------------------------------------------------------- shims
 & (Join-Path $Root 'tools\gen-shims.ps1') -Root $Root
@@ -76,10 +88,13 @@ if ($Overlay) {
 # ---------------------------------------------------------------- user PATH
 if (-not $SkipPath) {
   $want = @("$Root\bin-win", "$Root\bin-win\gen", "$Root\bin")   # bin = bash scripts, reachable from Git Bash
-  if (Test-Path "$overlayLink\bin-win") { $want = @("$overlayLink\bin-win") + $want }
+  # later overlays win, so they go first: reverse the name order
+  if ($overlayBinWin) { [array]::Reverse($overlayBinWin); $want = @($overlayBinWin) + $want }
   $cur  = [Environment]::GetEnvironmentVariable('Path', 'User') -split ';' | Where-Object { $_ }
+  $stale = @($cur | Where-Object { $_ -like "$Root\overlay\*" })   # pre-overlays\ single-link entries
+  if ($stale) { $cur = @($cur | Where-Object { $_ -notin $stale }); Write-Host "PATH (user): dropped stale $($stale -join ', ')" -ForegroundColor Yellow }
   $new  = @($want | Where-Object { $_ -notin $cur }) + $cur
-  if ($new.Count -ne $cur.Count) {
+  if ($new.Count -ne $cur.Count -or $stale) {
     [Environment]::SetEnvironmentVariable('Path', ($new -join ';'), 'User')
     Write-Host "PATH (user): prepended $($want -join ', ')" -ForegroundColor Green
   } else { Write-Host 'PATH (user): already set' }

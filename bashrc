@@ -1,6 +1,6 @@
 # devtools/bashrc - symlinked to ~/.bashrc by install.sh (and sourced by Git
 # Bash's ~/.bashrc on Windows). Stock Debian defaults first, then the repo's
-# shell/*.sh, then the overlay's shell/*.sh (docs/OVERLAY.md), then ~/.bashrc.local.
+# shell/*.sh, then each overlay's shell/*.sh (docs/OVERLAY.md), then ~/.bashrc.local.
 
 case $- in *i*) ;; *) return;; esac   # interactive shells only
 
@@ -28,5 +28,7 @@ export DEVTOOLS_ROOT
 . "$DEVTOOLS_ROOT/shell/env.sh"        # PATH lives here and only here
 . "$DEVTOOLS_ROOT/shell/prompt.sh"
 . "$DEVTOOLS_ROOT/shell/aliases.sh"
-for _f in "$DEVTOOLS_OVERLAY"/shell/*.sh; do [ -r "$_f" ] && . "$_f"; done; unset _f
+_ifs=$IFS; IFS=$'\n'
+for _o in $(devtools_overlays); do for _f in "$_o"/shell/*.sh; do [ -r "$_f" ] && . "$_f"; done; done   # overlays in order
+IFS=$_ifs; unset _o _f _ifs
 [ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"   # per-machine overrides

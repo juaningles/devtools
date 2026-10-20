@@ -3,8 +3,8 @@
   Generate cmd.exe shims and PowerShell functions from shell/aliases.sh.
 
 .DESCRIPTION
-  Reads every line of shell/aliases.sh, then of the overlay's shell/*.sh
-  (docs/OVERLAY.md), that ends in "#win" and emits:
+  Reads every line of shell/aliases.sh, then of each overlay's shell/*.sh
+  (docs/OVERLAY.md, in load order), that ends in "#win" and emits:
     bin-win/gen/<name>.cmd          one shim per alias (for cmd.exe)
     shell/aliases.generated.ps1     one function per alias (dot-sourced by profile.ps1)
 
@@ -26,10 +26,14 @@ $genDir      = Join-Path $Root 'bin-win\gen'
 $psOut       = Join-Path $Root 'shell\aliases.generated.ps1'
 
 if (-not (Test-Path $aliasesFile)) { throw "not found: $aliasesFile" }
-$overlay = if ($env:DEVTOOLS_OVERLAY) { $env:DEVTOOLS_OVERLAY } else { Join-Path $Root 'overlay' }
+# overlays in load order (same rule as shell/profile.ps1 and shell/env.sh)
+$overlays = if ($env:DEVTOOLS_OVERLAYS) { @($env:DEVTOOLS_OVERLAYS -split ';' | Where-Object { $_ }) } else {
+  @(Get-ChildItem (Join-Path $Root 'overlays') -Directory -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object FullName) +
+  @(if (Test-Path (Join-Path $Root 'overlay')) { Join-Path $Root 'overlay' })
+}
 $sources = @($aliasesFile)
-if (Test-Path (Join-Path $overlay 'shell')) {
-  $sources += Get-ChildItem (Join-Path $overlay 'shell') -Filter *.sh | Sort-Object Name | ForEach-Object FullName
+foreach ($ov in $overlays) {
+  if (Test-Path (Join-Path $ov 'shell')) { $sources += Get-ChildItem (Join-Path $ov 'shell') -Filter *.sh | Sort-Object Name | ForEach-Object FullName }
 }
 New-Item -ItemType Directory -Force -Path $genDir | Out-Null
 Get-ChildItem $genDir -Filter *.cmd | Remove-Item -Force

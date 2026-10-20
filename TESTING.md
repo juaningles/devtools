@@ -166,30 +166,40 @@ k8stool --query '<sub-name-regex>' --name '<cluster-regex>' --install  # PASS fo
 
 ## 6. Overlay checks
 
-Use a throwaway overlay; nothing here touches a real one.
+Use two throwaway overlays; nothing here touches a real one. Name order decides precedence: `ov-a` loads first, `ov-b` overrides it.
 
 ```bash
 # WSL / Linux
-mkdir -p /tmp/ov/shell /tmp/ov/bin
-echo "alias ovtest='echo overlay-ok'   #win" > /tmp/ov/shell/test.sh
-printf '#!/bin/sh\necho ovbin-ok\n' > /tmp/ov/bin/ovbin
-~/devtools/install.sh --overlay /tmp/ov        # "linked ~/devtools/overlay -> /tmp/ov"; chmods ovbin
-bash -ic 'ovtest; ovbin'                       # overlay-ok, ovbin-ok
-zsh -ic 'ovtest; ovbin'                        # same under zsh
-git -C ~/devtools status --short               # clean: overlay is gitignored
-rm ~/devtools/overlay && rm -rf /tmp/ov        # undo
+for o in a b; do mkdir -p /tmp/ov-$o/shell /tmp/ov-$o/bin; done
+echo "alias ovtest='echo from-a'; alias onlya='echo only-a'   #win" > /tmp/ov-a/shell/t.sh
+echo "alias ovtest='echo from-b'" > /tmp/ov-b/shell/t.sh
+printf '#!/bin/sh
+echo bin-a
+' > /tmp/ov-a/bin/ovbin; printf '#!/bin/sh
+echo bin-b
+' > /tmp/ov-b/bin/ovbin
+~/devtools/install.sh --overlay /tmp/ov-a --overlay /tmp/ov-b    # "linked ~/devtools/overlays/ov-a ...", same for ov-b
+bash -ic 'ovtest; onlya; ovbin'                 # from-b, only-a, bin-b  (b overrides a, a still loaded)
+zsh -ic 'ovtest; onlya; ovbin'                  # same under zsh
+echo $DEVTOOLS_OVERLAYS                         # (in a new shell) .../overlays/ov-a:.../overlays/ov-b
+git -C ~/devtools status --short                # clean: overlays/ is gitignored
+rm ~/devtools/overlays/ov-* && rm -rf /tmp/ov-a /tmp/ov-b   # undo
 ```
 
 ```powershell
 # Windows
-New-Item -ItemType Directory -Force $env:TEMP\ov\shell | Out-Null
-"alias ovtest='echo overlay-ok'   #win" | Set-Content -Encoding ascii $env:TEMP\ov\shell\test.sh
-'function ovps { "ovps-ok" }'          | Set-Content -Encoding ascii $env:TEMP\ov\shell\test.ps1
-.\install.ps1 -SkipTools -SkipPath -NoDockerShim -Overlay $env:TEMP\ov   # "overlay: ...\overlay -> ...\ov"
-Get-Content bin-win\gen\ovtest.cmd                                       # @echo overlay-ok %*
-. .\shell\profile.ps1; ovps; ovtest                                      # ovps-ok; overlay-ok
-cmd /c rmdir overlay; Remove-Item -Recurse $env:TEMP\ov; .\install.cmd   # undo: junction only, then regenerate
+foreach ($o in 'a','b') { New-Item -ItemType Directory -Force $env:TEMP\ov-$o\shell | Out-Null }
+"alias ovtest='echo from-a'   #win" | Set-Content -Encoding ascii $env:TEMP\ov-a\shell	.sh
+"alias ovtest='echo from-b'   #win" | Set-Content -Encoding ascii $env:TEMP\ov-b\shell	.sh
+'function ovps { "ovps-b" }' | Set-Content -Encoding ascii $env:TEMP\ov-b\shell	.ps1
+.\install.ps1 -SkipTools -SkipPath -NoDockerShim -Overlay $env:TEMP\ov-a,$env:TEMP\ov-b   # two "overlay: ...overlays\ov-x -> ..." lines
+Get-Content bin-win\gen\ovtest.cmd                                       # @echo from-b %*   (b wins: later source, same name)
+. .\shell\profile.ps1; ovps; ovtest                                      # ovps-b; from-b
+Get-ChildItem overlays                                                    # ov-a, ov-b junctions
+cmd /c "rmdir overlays\ov-a & rmdir overlays\ov-b"; Remove-Item -Recurse $env:TEMP\ov-a,$env:TEMP\ov-b; .\install.cmd   # undo: junctions only, then regenerate
 ```
+
+Migration from the single link: with an old `overlay` link present, either installer moves it into `overlays/<name>` and prints "moved overlay link".
 
 ## 7. New distro end to end (container2wsl straps)
 

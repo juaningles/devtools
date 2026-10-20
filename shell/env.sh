@@ -6,10 +6,17 @@
 # Resolve the repo root from this file's real location (works through symlinks).
 DEVTOOLS_ROOT="${DEVTOOLS_ROOT:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
 export DEVTOOLS_ROOT
-# Optional overlay repo (private aliases, scripts): a symlink/junction at $DEVTOOLS_ROOT/overlay
-# or any directory named here. Layout and contract: docs/OVERLAY.md.
-DEVTOOLS_OVERLAY="${DEVTOOLS_OVERLAY:-$DEVTOOLS_ROOT/overlay}"
-export DEVTOOLS_OVERLAY
+# Overlay repos (private aliases, scripts): the links in $DEVTOOLS_ROOT/overlays/, loaded in
+# name order so a later one overrides an earlier one; the old single $DEVTOOLS_ROOT/overlay
+# link still counts. Override the whole list with DEVTOOLS_OVERLAYS=dir:dir. docs/OVERLAY.md.
+if [ -z "$DEVTOOLS_OVERLAYS" ]; then
+  DEVTOOLS_OVERLAYS="$( { find "$DEVTOOLS_ROOT/overlays" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) 2>/dev/null | sort
+                          [ -d "$DEVTOOLS_ROOT/overlay" ] && echo "$DEVTOOLS_ROOT/overlay"; } | paste -sd: - )"
+fi
+export DEVTOOLS_OVERLAYS
+# devtools_overlays: one overlay dir per line. Loop with IFS set to newline so bash and zsh
+# both split on lines only:  _ifs=$IFS; IFS=$'\n'; for _o in $(devtools_overlays); do ...; done; IFS=$_ifs
+devtools_overlays() { printf '%s\n' "$DEVTOOLS_OVERLAYS" | tr ':' '\n' | sed '/^$/d'; }
 
 # Append-once PATH helper (prepend so repo tools win over system copies).
 _path_prepend() { [ -d "$1" ] && case ":$PATH:" in *":$1:"*) ;; *) PATH="$1:$PATH";; esac; }
@@ -18,7 +25,9 @@ _path_prepend "$HOME/.local/bin"                       # uv, pipx, user installs
 _path_prepend "${KREW_ROOT:-$HOME/.krew}/bin"          # kubectl krew plugins
 _path_prepend "$HOME/.cargo/bin"
 _path_prepend "$DEVTOOLS_ROOT/bin"
-_path_prepend "$DEVTOOLS_OVERLAY/bin"                  # overlay scripts win over repo ones
+_ifs=$IFS; IFS=$'\n'
+for _o in $(devtools_overlays); do _path_prepend "$_o/bin"; done   # overlay scripts win; last overlay first
+IFS=$_ifs; unset _o _ifs
 export PATH
 
 # Container engine used by aliases (override in the overlay or ~/.bashrc.local: DOCKER=podman).
@@ -64,7 +73,7 @@ _devtools_behind() {   # prints " name@sha" if origin's HEAD is not in this clon
   printf ' %s@%s' "$(basename "$(cd "$_d" && pwd -P)")" "$_r"
 }
 if [ -t 0 ] && [ -t 1 ] && [ "${DEVTOOLS_UPDATE_CHECK:-prompt}" != off ] && command -v git >/dev/null 2>&1; then
-  _upd="$(_devtools_behind "$DEVTOOLS_ROOT")$(_devtools_behind "$DEVTOOLS_OVERLAY")"
+  _upd="$(_devtools_behind "$DEVTOOLS_ROOT"; _ifs=$IFS; IFS=$'\n'; for _o in $(devtools_overlays); do _devtools_behind "$_o"; done)"
   if [ -n "$_upd" ]; then
     _names="$(echo "$_upd" | tr ' ' '\n' | sed '/^$/d; s/@.*//' | tr '\n' ' ')"   # no word-splitting: zsh-safe
     _seen="${XDG_CACHE_HOME:-$HOME/.cache}/devtools/update-declined"

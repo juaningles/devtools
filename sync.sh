@@ -1,5 +1,5 @@
 #!/bin/bash
-# sync.sh - keep this clone (and the overlay, if it is a git clone) in step with
+# sync.sh - keep this clone (and every overlay that is a git clone) in step with
 # its origin (the Windows clone by default).
 #   devtools-sync          pull --ff-only, then push local commits back if any
 #   devtools-sync --status just show ahead/behind
@@ -27,7 +27,9 @@ sync_repo() {
 }
 
 sync_repo "$ROOT"
-if [ -d "$ROOT/overlay/.git" ] || [ -f "$ROOT/overlay/.git" ]; then
-  sync_repo "$(readlink -f "$ROOT/overlay")"
-fi
+# overlays, same order as the shell loads them (overlays/* by name, then the old single link)
+for ov in "$ROOT"/overlays/* "$ROOT/overlay"; do
+  [ -e "$ov/.git" ] || continue
+  sync_repo "$(readlink -f "$ov")"
+done
 echo "sync: ok"
