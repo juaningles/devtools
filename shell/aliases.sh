@@ -37,6 +37,14 @@ alias k8n='kubectl config set-context --current --namespace'        #win
 alias kc='kubectl config get-contexts -o name'                      #win
 kcfor() { kubectl config get-contexts -o name | xargs -I{} "$@"; }
 
+# exec into a default tools pod: set KX_TARGET (e.g. svc/cli, deploy/toolbox) in your overlay
+kxs() { kubectl exec -it "${KX_TARGET:?set KX_TARGET, e.g. KX_TARGET=deploy/toolbox}" -- "$@"; }
+
+# SQL Server running in the cluster; KSQL_SVC (svc/mssql), KSQL_NS (mssql), KSQL_PORT (31433)
+# The sa password is read from SA_PASSWORD inside the pod, never from this machine.
+ksqlproxy() { echo "Running as localhost:${KSQL_PORT:-31433}"; kubectl port-forward "${KSQL_SVC:-svc/mssql}" "${KSQL_PORT:-31433}:1433" -n "${KSQL_NS:-mssql}"; }
+ksql() { kubectl exec -it "${KSQL_SVC:-svc/mssql}" -n "${KSQL_NS:-mssql}" -- /bin/bash -c '/opt/mssql-tools/bin/sqlcmd -U sa -P "$SA_PASSWORD"'; }
+
 # cronjob helpers live in bin/ (cron2cli, cron2job, cron-keepalive, fixpod.sh)
 alias keepalive='cron-keepalive'
 

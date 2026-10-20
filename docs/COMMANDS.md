@@ -39,6 +39,9 @@ The file is sourced by bash (G, L) and zsh (L). Lines marked `#win` are also gen
 | `k8n NS` | `kubectl config set-context --current --namespace NS` | yes |
 | `kc` | `kubectl config get-contexts -o name` | yes |
 | `kcfor CMD {}` | run CMD once per context name (`xargs -I{}`) | |
+| `kxs CMD...` | `kubectl exec -it $KX_TARGET -- CMD...`, a default tools pod; set `KX_TARGET` (e.g. `deploy/toolbox`) in your overlay | |
+| `ksql` | `sqlcmd -U sa` inside an in-cluster SQL Server, password from the pod's `$SA_PASSWORD`. `KSQL_SVC` (default `svc/mssql`), `KSQL_NS` (`mssql`) | |
+| `ksqlproxy` | port-forward that SQL Server to `localhost:$KSQL_PORT` (default 31433) | |
 | `keepalive POD` | `cron-keepalive POD` | |
 
 ### containers (`$DOCKER`, default `docker`; set `DOCKER=podman` in your overlay or `~/.bashrc.local`)
