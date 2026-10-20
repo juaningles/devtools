@@ -207,7 +207,7 @@ Needs [docker2wsl](https://github.com/juaningles/docker2wsl) cloned next to `dev
 
 ```cmd
 set C2W_SSH_SOURCE=%TEMP%\c2w-sshtest      :: folder holding a test id_ed25519/.pub/config, locked down with icacls
-container2wsl.bat ubuntu:24.04 -n dt-test -u tester -b sudo -b devtools -b zsh -b motd -b k8s-tools -b data-tools -p uv -p devtools-shell -p devtools-overlay -p keychain -p ssh-keys
+container2wsl.bat ubuntu:24.04 -n dt-test -u tester -b sudo -b devtools -b zsh -b motd -b k8s-tools -b data-tools -p uv -p devtools-shell -p devtools-overlay -p ssh-keys -p keychain
 wsl -d dt-test -- zsh -ic "echo $DEVTOOLS_ROOT; echo $DEVTOOLS_OVERLAYS; which cron2cli kubectl helm yq mlr uv python keychain; type kbash"
 wsl -d dt-test -- bash -ic "readlink -f ~/.bashrc; alias kg; ls ~/devtools/overlays; stat -c '%a %n' ~/.ssh ~/.ssh/*; ssh -G e2e-test | head -3; echo ${SSH_AUTH_SOCK:+agent running}"
 wsl -d dt-test -- c2w-manifest
