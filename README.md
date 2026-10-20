@@ -16,7 +16,7 @@ One repo for the shell setup and small CLI tools used from **Windows (cmd, Power
 bin/                 bash tools, identical on every platform: cron2cli, cron2job, cron-keepalive,
                      fixpod.sh, csv2json, k8stool, venv.sh  (+ k8stool.ps1, the PowerShell port)
 bin-win/             Windows only: dsl.cmd, docker.bat and docker.exe (podman shims), pacr-login.cmd,
-                     k8stool.cmd (-> bin/k8stool.ps1), make.cmd, docker2wsl/podman2wsl.cmd
+                     k8stool.cmd (-> bin/k8stool.ps1), make.cmd
 bin-win/gen/         GENERATED cmd shims, one per #win alias            (gitignored)
 shell/aliases.sh     THE alias list; lines ending in #win also become Windows commands
 shell/env.sh         the only file that sets PATH; completions; tool hooks, all guarded

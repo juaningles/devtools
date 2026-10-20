@@ -89,9 +89,7 @@ The file is sourced by bash (G, L) and zsh (L). Lines marked `#win` are also gen
 | `k8stool` | runs `bin/k8stool.ps1`. |
 | `gen\*.cmd` | generated shims, one per `#win` alias. |
 
-| `docker2wsl` / `podman2wsl` | compatibility names: forward to `container2wsl.bat` (see below). With no arguments they print the new syntax and its help. |
-
-Importing a container image as a WSL distro is **not** in this repo: use [container2wsl](https://github.com/juaningles/docker2wsl), cloned at `C:\code\docker2wsl` (tested, supports bootstrap scripts, replaces the old docker2wsl.cmd / podman2wsl.cmd). It calls `docker` or `docker.bat`, so devtools' podman shim on PATH is enough, and the podman machine must be running. Syntax changed from the old scripts: `container2wsl <image> --name NAME --user USER --location DIR`, not `/image /distro /user /storage`. Override its location with `set CONTAINER2WSL=...`. Its straps `k8s-tools`, `data-tools`, `azure-cli`, `uv` and `devtools-shell` install everything listed in the "needs" column above, plus devtools itself.
+Importing a container image as a WSL distro is **not** in this repo: use [container2wsl](https://github.com/juaningles/docker2wsl), cloned at `C:\code\docker2wsl` and on PATH as `container2wsl` (tested, supports bootstrap scripts, replaces the old docker2wsl.cmd / podman2wsl.cmd). It calls `docker` or `docker.bat`, so devtools' podman shim on PATH is enough, and the podman machine must be running. Syntax changed from the old scripts: `container2wsl <image> --name NAME --user USER --location DIR`, not `/image /distro /user /storage`. Its straps `k8s-tools`, `data-tools`, `azure-cli`, `uv`, `devtools-shell`, `claude` and `databricks-ug` install everything listed in the "needs" column above, plus devtools itself. Keep your own build recipe (image, name, user, straps) in your overlay's `bin-win/`.
 
 ## Overlay — private aliases and scripts
 
