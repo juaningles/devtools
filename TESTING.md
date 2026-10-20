@@ -203,13 +203,15 @@ Migration from the single link: with an old `overlay` link present, either insta
 
 ## 7. New distro end to end (container2wsl straps)
 
-Needs [docker2wsl](https://github.com/juaningles/docker2wsl) at `C:\code\docker2wsl` and a working docker/podman. From an elevated cmd:
+Needs [docker2wsl](https://github.com/juaningles/docker2wsl) cloned next to `devtools` (and the overlay repos, each with its `.devtools-overlay` marker, next to them), plus a working docker/podman. Keys for `ssh-keys` come from an overlay's `ssh/` folder or `C2W_SSH_SOURCE`; use a throwaway key pair for this test. From an elevated cmd:
 
 ```cmd
-container2wsl.bat ubuntu:24.04 -n dt-test -u tester -b sudo -b devtools -b zsh -b k8s-tools -b data-tools -p uv -p devtools-shell
-wsl -d dt-test -- zsh -ic "echo $DEVTOOLS_ROOT; which cron2cli kubectl helm yq mlr uv python; type kbash"
-wsl -d dt-test -- bash -ic "readlink -f ~/.bashrc; alias kg"
+set C2W_SSH_SOURCE=%TEMP%\c2w-sshtest      :: folder holding a test id_ed25519/.pub/config, locked down with icacls
+container2wsl.bat ubuntu:24.04 -n dt-test -u tester -b sudo -b devtools -b zsh -b motd -b k8s-tools -b data-tools -p uv -p devtools-shell -p devtools-overlay -p keychain -p ssh-keys
+wsl -d dt-test -- zsh -ic "echo $DEVTOOLS_ROOT; echo $DEVTOOLS_OVERLAYS; which cron2cli kubectl helm yq mlr uv python keychain; type kbash"
+wsl -d dt-test -- bash -ic "readlink -f ~/.bashrc; alias kg; ls ~/devtools/overlays; stat -c '%a %n' ~/.ssh ~/.ssh/*; ssh -G e2e-test | head -3; echo ${SSH_AUTH_SOCK:+agent running}"
+wsl -d dt-test -- c2w-manifest
 wsl --unregister dt-test
 ```
 
-Expect `/home/tester/devtools`, every tool found (`python` from `~/.local/bin`), and the same aliases in bash and zsh.
+Expect `/home/tester/devtools`, every overlay listed in `DEVTOOLS_OVERLAYS` and under `overlays/`, every tool found (`python` from `~/.local/bin`), the same aliases in bash and zsh, `~/.ssh` 700 with keys 600, the ssh config parsing, the keychain agent running, and the manifest listing the private overlays. Run it once from a copy of `docker2wsl` placed somewhere else (with the overlay folders as siblings) to prove nothing depends on `C:\code`.
