@@ -136,7 +136,18 @@ git -C /mnt/c/code/devtools log -1 --oneline                             # shows
 git -C /mnt/c/code/devtools reset --hard HEAD~1 && git -C ~/devtools reset --hard HEAD~1   # undo
 ```
 
-The staleness hint: `touch -d '8 days ago' ~/devtools/.git/FETCH_HEAD; bash -ic exit` prints `devtools: clone not synced in 7+ days`.
+The update check (in a WSL clone; the hub is `/mnt/c/code/devtools`):
+
+```bash
+git -C /mnt/c/code/devtools commit --allow-empty -m "update test"   # hub moves ahead
+bash -i            # "devtools: update available (devtools) - sync now? [y/N]"; answer n, exit
+bash -i            # same commits: one-line "run 'devtools-sync'" hint, no prompt; exit
+zsh -i             # (zsh distros) same hint; exit
+DEVTOOLS_UPDATE_CHECK=off bash -i   # nothing; exit
+bash -i            # still the hint; this time run devtools-sync, then exit
+bash -i            # nothing: up to date
+git -C /mnt/c/code/devtools reset --hard HEAD~1 && git -C ~/devtools reset --hard HEAD~1   # undo
+```
 
 ## 5. Cluster-dependent checks (need a kubeconfig; run against a dev cluster)
 

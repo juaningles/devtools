@@ -49,11 +49,38 @@ if [ -n "$BASH_VERSION" ]; then
   unset _f
 fi
 
-# --- staleness hint (keeps clones in sync; see sync.sh) --------------------------
-if [ -d "$DEVTOOLS_ROOT/.git" ] && [ -t 1 ]; then
-  _stamp="$DEVTOOLS_ROOT/.git/FETCH_HEAD"
-  if [ ! -f "$_stamp" ] || [ -n "$(find "$_stamp" -mtime +7 2>/dev/null)" ]; then
-    echo "devtools: clone not synced in 7+ days - run 'devtools-sync'"
+# --- update check: offer to sync when the origin has new commits (see sync.sh) -------
+# Runs in interactive shells only, and only for local-path origins (WSL clones of the
+# Windows hub: one `git ls-remote` over /mnt/c, ~70 ms per repo, never the network).
+#   DEVTOOLS_UPDATE_CHECK=prompt (default, y/N with a 10 s timeout) | hint | off
+# Saying no is remembered for those commits: later shells print a one-line hint instead.
+_devtools_behind() {   # prints " name@sha" if origin's HEAD is not in this clone's history
+  _d="$1"
+  [ -d "$_d/.git" ] || return 0
+  case "$(git -C "$_d" remote get-url origin 2>/dev/null)" in /*|file://*) ;; *) return 0;; esac
+  _r="$(git -C "$_d" ls-remote origin HEAD 2>/dev/null | cut -f1)"
+  [ -n "$_r" ] && [ "$_r" != "$(git -C "$_d" rev-parse HEAD 2>/dev/null)" ] || return 0
+  git -C "$_d" merge-base --is-ancestor "$_r" HEAD 2>/dev/null && return 0   # we are only ahead
+  printf ' %s@%s' "$(basename "$(cd "$_d" && pwd -P)")" "$_r"
+}
+if [ -t 0 ] && [ -t 1 ] && [ "${DEVTOOLS_UPDATE_CHECK:-prompt}" != off ] && command -v git >/dev/null 2>&1; then
+  _upd="$(_devtools_behind "$DEVTOOLS_ROOT")$(_devtools_behind "$DEVTOOLS_OVERLAY")"
+  if [ -n "$_upd" ]; then
+    _names="$(echo "$_upd" | tr ' ' '\n' | sed '/^$/d; s/@.*//' | tr '\n' ' ')"   # no word-splitting: zsh-safe
+    _seen="${XDG_CACHE_HOME:-$HOME/.cache}/devtools/update-declined"
+    if [ "${DEVTOOLS_UPDATE_CHECK:-prompt}" = hint ] || [ "$(cat "$_seen" 2>/dev/null)" = "$_upd" ]; then
+      echo "devtools: update available (${_names% }) - run 'devtools-sync'"
+    else
+      _msg="devtools: update available (${_names% }) - sync now? [y/N] "
+      _ans=
+      if [ -n "$ZSH_VERSION" ]; then read -t 10 -k 1 "_ans?$_msg"; else read -r -t 10 -n 1 -p "$_msg" _ans; fi
+      echo
+      case "$_ans" in
+        y|Y) "$DEVTOOLS_ROOT/sync.sh" && echo "devtools: updated - open a new shell (or: exec ${ZSH_VERSION:+zsh}${BASH_VERSION:+bash}) to load it" ;;
+        *) mkdir -p "${_seen%/*}" && printf '%s' "$_upd" > "$_seen" ;;
+      esac
+    fi
   fi
-  unset _stamp
+  unset _upd _names _seen _msg _ans
 fi
+unset -f _devtools_behind; unset _d _r
