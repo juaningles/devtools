@@ -81,7 +81,7 @@ The file is sourced by bash (G, L) and zsh (L). Lines marked `#win` are also gen
 
 | command | what |
 |---|---|
-| `dsl [NAME] [--image IMG] [--pull\|--stop\|--kill\|--rm]` | start-or-attach to the `devnode` dev container (privileged, mounts `C:\` and `C:\wsl-storage\devnode`). |
+| `dsl [NAME] [--image IMG] [--pull\|--stop\|--kill\|--rm]` | start-or-attach to the `devnode` dev container (privileged, mounts the system drive at `/mnt/<letter>` and `%WSL_STORAGE%\devnode`, default `%SystemDrive%\wsl-storage`). |
 | `docker.bat` | `podman %*` for interactive shells. |
 | `docker.exe` | a **copy of podman.exe** made by `install.ps1`; required by VS Code Dev Containers, which cannot launch a .bat. Gitignored. |
 | `pacr-login ACR` | podman login to an ACR with an az token. |

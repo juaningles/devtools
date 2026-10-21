@@ -18,6 +18,13 @@ set DOCKER_CLI_HINTS=false
 set CONTAINER_NAME=devnode
 set CONTAINER_IMAGE=juaningles/devnode:full
 
+:: Host paths: the system drive is mounted at /mnt/<letter> as in WSL, and the devnode home and
+:: bin live under WSL_STORAGE (default %SystemDrive%\wsl-storage, like container2wsl).
+if not defined WSL_STORAGE set "WSL_STORAGE=%SystemDrive%\wsl-storage"
+set "DSL_DRIVE=%SystemDrive:~0,1%"
+for %%L in (a b c d e f g h i j k l m n o p q r s t u v w x y z) do if /i "%DSL_DRIVE%"=="%%L" set "DSL_DRIVE=%%L"
+set "DSL_STORE=%WSL_STORAGE:\=/%"
+
 :parse_args
 if "%1"=="" (
     goto run_container
@@ -100,7 +107,7 @@ if "%ACTION%"=="remove" (
 :run_container
 docker ps | findstr /i /c:"%CONTAINER_NAME%" > nul
 if errorlevel 1 (
-    docker run -it --privileged --restart always -v "C:/:/mnt/c" -v "C:/wsl-storage/devnode/home:/root" -v "C:/wsl-storage/devnode/bin:/usr/local/bin" --name %CONTAINER_NAME% %CONTAINER_IMAGE% bash
+    docker run -it --privileged --restart always -v "%SystemDrive%/:/mnt/%DSL_DRIVE%" -v "%DSL_STORE%/devnode/home:/root" -v "%DSL_STORE%/devnode/bin:/usr/local/bin" --name %CONTAINER_NAME% %CONTAINER_IMAGE% bash
     if errorlevel 1 (
         docker exec -it %CONTAINER_NAME% /bin/bash
     )
