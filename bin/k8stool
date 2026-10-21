@@ -20,7 +20,7 @@ Options:
   --query PATTERN        add subscriptions whose name matches PATTERN (regex)
   --name PATTERN         only clusters whose name matches PATTERN (regex)
   --help
-Requires: az, jq, kubectl, kubelogin
+Requires: az (the Linux CLI in WSL), jq, kubectl, kubelogin; nslookup optional
 EOF
 }
 
@@ -40,6 +40,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 for t in az jq kubectl kubelogin; do command -v "$t" >/dev/null 2>&1 || { echo "ERROR: $t not found"; exit 1; }; done
+# In WSL, an az found through the Windows PATH writes credentials to the Windows kubeconfig
+# (C:\Users\<you>\.kube\config), while the Linux kubectl here reads ~/.kube/config.
+case "$(command -v az)" in
+  /mnt/*) echo "WARNING: az is the Windows CLI ($(command -v az)): get-credentials will update the Windows kubeconfig,"
+          echo "         not ~/.kube/config, so kubectl here will not see the cluster. Install the Linux CLI:"
+          echo "         sudo bash /mnt/c/code/docker2wsl/bootstraps/azure-cli   (or container2wsl -b azure-cli)"
+          echo;;
+esac
+HAVE_NSLOOKUP=false; command -v nslookup >/dev/null 2>&1 && HAVE_NSLOOKUP=true
 
 if [[ -n "$SEARCH_PATTERN" ]]; then
   mapfile -t found < <(az account list -o json | jq -r --arg p "$SEARCH_PATTERN" '.[] | select(.name | test($p)) | .id')
@@ -75,11 +84,15 @@ done | while read -r item; do
   sub=$(jq -r .sub <<<"$item");   rsrc=$(jq -r .rsrc <<<"$item")
 
   banner "$name"
-  [[ "$fqdn" != null ]] && run_test "nslookup $fqdn"
-  if [[ -z "$pfqdn" || "$pfqdn" == null ]]; then
-    echo -e "${BLUE}SKIPPED${RESET}\tprivate fqdn not set"
+  if ! $HAVE_NSLOOKUP; then
+    echo -e "${BLUE}SKIPPED${RESET}\tnslookup not installed (apt install dnsutils, apk add bind-tools)"
   else
-    run_test "nslookup $pfqdn"
+    [[ "$fqdn" != null ]] && run_test "nslookup $fqdn"
+    if [[ -z "$pfqdn" || "$pfqdn" == null ]]; then
+      echo -e "${BLUE}SKIPPED${RESET}\tprivate fqdn not set"
+    else
+      run_test "nslookup $pfqdn"
+    fi
   fi
   run_test "az account set --subscription $sub"
   run_test "az aks get-credentials --resource-group $rsrc --name $name --overwrite-existing"

@@ -1,0 +1,7 @@
+# ssh material is never tracked: keys, config, known_hosts, public keys. Only the README is.
+ssh/*
+!ssh/README.md
+.vscode/
+*.bak
+*~
+Thumbs.db

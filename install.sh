@@ -89,9 +89,9 @@ if [ "$TOOLS" = yes ]; then
   if command -v apt-get >/dev/null; then
     # make lives here rather than on Windows: docker-driving Makefiles are happiest next to a
     # Linux container runtime.
-    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq jq miller make curl ca-certificates
+    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq jq miller make curl ca-certificates dnsutils
   elif command -v apk >/dev/null; then
-    $SUDO apk add --no-cache jq miller make curl
+    $SUDO apk add --no-cache jq miller make curl bind-tools
   else
     echo "no apt/apk: install jq and miller (mlr) manually"
   fi

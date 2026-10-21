@@ -1,0 +1,48 @@
+#!/bin/bash
+# devtools-new-overlay - create a devtools overlay from templates/overlay, or refresh the
+# boilerplate of an existing one (docs/OVERLAY.md).
+#   devtools-new-overlay devtools-foo [DIR]     # create DIR/devtools-foo (default ~), git init, link it
+#   devtools-new-overlay --update ~/devtools-foo  # copy only the boilerplate files over an existing overlay
+# Boilerplate = install.ps1, install.sh, .gitignore, .gitattributes, .devtools-overlay, ssh/README.md.
+# --update never touches README.md, shell/, bin-win/ or docs/. Review the diff before committing.
+set -euo pipefail
+HERE="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"   # the devtools clone this script lives in
+DEVTOOLS="${DEVTOOLS_ROOT:-$HERE}"                                # the devtools install the overlay links into
+TEMPLATE="$HERE/templates/overlay"
+BOILERPLATE="install.ps1 install.sh .gitignore .gitattributes .devtools-overlay ssh/README.md"
+
+case "${1:-}" in
+  -h|--help|'') sed -n '2,7p' "$0"; exit 0;;
+  --update)
+    DEST="$(cd "${2:?--update needs a folder}" && pwd)"
+    [ -e "$DEST/.devtools-overlay" ] || [ -e "$DEST/install.sh" ] || { echo "$DEST does not look like an overlay" >&2; exit 1; }
+    for f in $BOILERPLATE; do
+      mkdir -p "$DEST/$(dirname "$f")"
+      cp "$TEMPLATE/$f" "$DEST/$f" && echo "updated $DEST/$f"
+    done
+    chmod +x "$DEST/install.sh"
+    echo "done. Review with: git -C '$DEST' diff"
+    exit 0;;
+esac
+
+NAME="$1"; DIR="${2:-$HOME}"
+case "$NAME" in *[!A-Za-z0-9._-]*) echo "overlay name must be a plain folder name: $NAME" >&2; exit 1;; esac
+DEST="$(cd "$DIR" && pwd)/$NAME"
+[ -e "$DEST" ] && { echo "$DEST already exists (use --update to refresh its boilerplate)" >&2; exit 1; }
+
+cp -r "$TEMPLATE" "$DEST"
+mv "$DEST/shell/{{NAME}}.sh" "$DEST/shell/$NAME.sh"
+sed -i "s/{{NAME}}/$NAME/g" "$DEST/README.md" "$DEST/shell/$NAME.sh"
+chmod +x "$DEST/install.sh"
+echo "created $DEST"
+
+git -C "$DEST" init -q
+git -C "$DEST" add -A
+if git -C "$DEST" config user.email >/dev/null; then
+  git -C "$DEST" commit -q -m "New devtools overlay from templates/overlay"
+else
+  echo "git: no user.email configured; files are staged, commit them yourself"
+fi
+DEVTOOLS_ROOT="$DEVTOOLS" "$DEST/install.sh"
+echo
+echo "next: edit $DEST/README.md and shell/$NAME.sh, add a remote, push."

@@ -44,6 +44,7 @@ cd C:\code\devtools
 .\install.ps1                              # winget tools, docker.exe shim, user PATH, $PROFILE, Git Bash ~/.bashrc, cmd shims
 .\install.ps1 -Wsl Ubuntu-24.04,devnode    # also clone into those distros and run install.sh there
 .\install.ps1 -SkipTools -Overlay ..\devtools-private,..\devtools-unisys   # optional: link overlays
+.\tools\new-overlay.ps1 -Name devtools-foo   # new overlay repo from templates\overlay (docs\OVERLAY.md)
 ```
 
 What it changes on the machine:
@@ -82,7 +83,7 @@ Either via `install.ps1 -Wsl` above, or by hand:
 ~/devtools/install.sh --tools                                      # bare Linux hosts only: install the CLI tools
 ```
 
-What it changes: backs up a real `~/.bashrc` to `~/.bashrc.pre-devtools` and symlinks `~/.bashrc` to the clone. If zsh is installed (or `~/.zshrc` exists) it appends one line to `~/.zshrc` that sources `shell/zshrc`, so Oh My Zsh and powerlevel10k keep owning that file. It also runs `chmod +x bin/*`. With `--tools`: `jq`, `miller` and `make` via apt or apk, `uv` via astral.sh, and `kubectl`, `kubelogin`, `yq`, `helm` into `~/.local/bin` if missing. On an existing WSL distro you can also run the container2wsl straps directly: `sudo bash /mnt/c/code/docker2wsl/bootstraps/k8s-tools`. Per-machine extras go in `~/.bashrc.local`.
+What it changes: backs up a real `~/.bashrc` to `~/.bashrc.pre-devtools` and symlinks `~/.bashrc` to the clone. If zsh is installed (or `~/.zshrc` exists) it appends one line to `~/.zshrc` that sources `shell/zshrc`, so Oh My Zsh and powerlevel10k keep owning that file. It also runs `chmod +x bin/*`. With `--tools`: `jq`, `miller`, `make` and `nslookup` (`dnsutils` / `bind-tools`) via apt or apk, `uv` via astral.sh, and `kubectl`, `kubelogin`, `yq`, `helm` into `~/.local/bin` if missing. On an existing WSL distro you can also run the container2wsl straps directly: `sudo bash /mnt/c/code/docker2wsl/bootstraps/k8s-tools`. Per-machine extras go in `~/.bashrc.local`.
 
 ### After install
 
