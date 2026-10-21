@@ -36,9 +36,11 @@ export DOCKER="${DOCKER:-docker}"
 # ls: make "other-writable" dirs readable on dark terminals (WSL /mnt/c).
 export LS_COLORS="${LS_COLORS}:ow=01;36;40"
 
-# ssh-agent via keychain, only where it exists.
+# ssh-agent via keychain, only where it exists. The agent starts empty: keys join it on first
+# use through "AddKeysToAgent yes" in ~/.ssh/config, so login never asks for a passphrase.
+# To preload keys, list their file names (in ~/.ssh) in ~/.keychain_default_keys.
 if command -v keychain >/dev/null 2>&1; then
-  eval "$(keychain --eval --agents ssh --quiet $(cat ~/.keychain_default_keys 2>/dev/null || echo "$HOME/.ssh/id_rsa") 2>/dev/null)"
+  eval "$(keychain --eval --agents ssh --quiet $(cat ~/.keychain_default_keys 2>/dev/null) 2>/dev/null)"
 fi
 
 # --- completions ---------------------------------------------------------------
