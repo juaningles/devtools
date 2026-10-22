@@ -5,7 +5,10 @@ REM   rebuild-wsl NAME [args...]           build recipes\NAME.conf; args go to c
 REM                                        recipe's defaults, so -n/-u/--force/--dry-run override, -b/-p add
 REM   rebuild-wsl PATH\to\x.conf [args]    use that file (anything with a \ or / or ending in .conf)
 REM Recipe: key=value lines (no spaces around =), # comments on their own line. Keys: image (required),
-REM name (default: recipe file name), user, location, bootstraps, poststraps (space separated), extra (raw).
+REM name (default: recipe file name), user, location, bootstraps, poststraps (space separated), extra (raw),
+REM target (wsl or container: --target), commit (image:tag: --commit, container target only).
+REM engine and arch are for the macOS/Linux runner (devtools bin/rebuild-container) and ignored here.
+REM Build the same recipe as a container instead: rebuild-wsl NAME --target container
 REM Same recipe name in several overlays: the last in name order wins, like overlay aliases.
 REM container2wsl is found via CONTAINER2WSL, then PATH, then the docker2wsl clone next to devtools.
 REM Run from an elevated cmd or PowerShell.
@@ -32,6 +35,7 @@ if not defined FILE (
 
 :: --- read the recipe ---
 set "R_image=" & set "R_name=" & set "R_user=" & set "R_location=" & set "R_bootstraps=" & set "R_poststraps=" & set "R_extra="
+set "R_target=" & set "R_commit=" & set "R_engine=" & set "R_arch="
 for /f "usebackq eol=# tokens=1,* delims==" %%k in ("%FILE%") do set "R_%%k=%%l"
 if not defined R_image (echo rebuild-wsl: %FILE% has no image= line 1>&2 & exit /b 2)
 if not defined R_name set "R_name=%RECIPE_NAME%"
@@ -42,6 +46,7 @@ if defined R_user set "ARGS=!ARGS! -u %R_user%"
 if defined R_location set "ARGS=!ARGS! -l "%R_location%""
 if defined R_bootstraps for %%b in (%R_bootstraps%) do set "ARGS=!ARGS! -b %%b"
 if defined R_poststraps for %%p in (%R_poststraps%) do set "ARGS=!ARGS! -p %%p"
+if defined R_target set "ARGS=!ARGS! --target %R_target%"
 if defined R_extra set "ARGS=!ARGS! %R_extra%"
 set "REST="
 :rest
@@ -51,6 +56,14 @@ set "REST=!REST! %1"
 goto :rest
 
 :run
+:: commit= applies only when this build is a container (recipe target=, or --target container given)
+if defined R_commit (
+    set "_CT=0"
+    if /i "%R_target%"=="container" set "_CT=1"
+    echo "!REST!" | findstr /i /c:"--target container" >nul && set "_CT=1"
+    echo "!REST!" | findstr /i /c:"--target wsl" >nul && set "_CT=0"
+    if "!_CT!"=="1" set "ARGS=!ARGS! --commit %R_commit%"
+)
 call :find_c2w || exit /b 2
 echo rebuild-wsl: recipe %FILE%
 echo rebuild-wsl: container2wsl !ARGS!!REST!

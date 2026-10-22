@@ -23,7 +23,7 @@ my-overlay/
   shell/*.ps1         dot-sourced by shell/profile.ps1, in name order
   bin/                prepended to PATH in bash/zsh (ahead of devtools/bin)
   bin-win/            prepended to the Windows user PATH by install.ps1
-  recipes/            <name>.conf distro recipes for rebuild-wsl (image, user, straps); see templates/overlay/recipes/README.md
+  recipes/            <name>.conf build recipes for rebuild-wsl / rebuild-container (image, user, straps); see templates/overlay/recipes/README.md
   straps/             container2wsl straps, resolvable by bare name once the overlay is detected
   ssh/                source for the container2wsl ssh-keys poststrap (never commit private keys)
 ```
@@ -77,4 +77,4 @@ overrides that in bash); if git has no `user.email` the files are left staged fo
 container2wsl.bat ubuntu:24.04 -n dev ... -p uv -p devtools-shell -p devtools-overlay
 ```
 
-Keep that command as a recipe in your overlay, `recipes/dev.conf` (image, name, user, bootstraps, poststraps), and run it with devtools' `rebuild-wsl dev` from an elevated cmd. Arguments after the name go to container2wsl last, so `rebuild-wsl dev -n dev2 --dry-run` overrides and `-p keychain` adds. `rebuild-wsl` alone lists every recipe in every overlay; the format is in `templates/overlay/recipes/README.md`.
+Keep that command as a recipe in your overlay, `recipes/dev.conf` (image, name, user, bootstraps, poststraps), and run it with devtools' `rebuild-wsl dev` from an elevated cmd. Arguments after the name go to container2wsl last, so `rebuild-wsl dev -n dev2 --dry-run` overrides and `-p keychain` adds. `rebuild-wsl` alone lists every recipe in every overlay; the format is in `templates/overlay/recipes/README.md`. The same recipe also builds a running container: `rebuild-wsl dev --target container` on Windows (docker or podman), or `rebuild-container dev` on macOS and Linux (docker, podman or Apple `container`, through docker2wsl's `container2x.sh`). Recipe keys `target=`, `commit=`, `engine=` and `arch=` set the defaults for those; see docker2wsl `docs/RUNNERS.md`.
