@@ -1,16 +1,19 @@
 # recipes/
 
-Build recipes: one `<name>.conf` per WSL distro or container. The same file works with:
+Build recipes for [docker2wsl](https://github.com/juaningles/docker2wsl): one `<name>.conf` per WSL
+distro or container. docker2wsl finds them in the `recipes/` folder of every private overlay it detects
+(`--private`, `C2W_PRIVATE_DIRS`, or sibling folders with a `.devtools-overlay` marker). The same file
+works with these docker2wsl commands (`rebuild-*` are shorthands for `--recipe`):
 
 | command | builds | where |
 |---|---|---|
-| `rebuild-wsl <name>` | a WSL distro (container2wsl.bat) | Windows, elevated cmd or PowerShell |
+| `rebuild-wsl <name>` = `container2wsl.bat --recipe <name>` | a WSL distro | Windows, elevated cmd or PowerShell |
 | `rebuild-wsl <name> --target container` | a running docker/podman container | Windows |
-| `rebuild-container <name>` | a running container (container2x.sh): docker, podman or Apple `container` | macOS, Linux |
+| `rebuild-container <name>` = `container2x.sh --recipe <name>` | a running container: docker, podman or Apple `container` | macOS, Linux |
 
 Arguments after the name go to the builder after the recipe's defaults, so `-n`, `-u`, `--force`,
 `--dry-run`, `--engine`, `--arch` and `--commit` override and extra `-b` / `-p` straps add.
-`rebuild-wsl` or `rebuild-container` alone lists every recipe in every overlay.
+`rebuild-wsl` or `rebuild-container` alone (or `--recipes`) lists every recipe in every overlay.
 
 Format: `key=value` lines with no spaces around `=`; comments are whole lines starting with `#`.
 
