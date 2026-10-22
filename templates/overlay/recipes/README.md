@@ -1,8 +1,9 @@
 # recipes/
 
 Build recipes for [docker2wsl](https://github.com/juaningles/docker2wsl): one `<name>.conf` per WSL
-distro or container. docker2wsl finds them in the `recipes/` folder of every private overlay it detects
-(`--private`, `C2W_PRIVATE_DIRS`, or sibling folders with a `.devtools-overlay` marker). The same file
+distro or container. docker2wsl reads its own `recipes/` (samples such as `default`), then the
+`recipes/` folder of every private overlay it detects (`--private`, `C2W_PRIVATE_DIRS`, or sibling
+folders with a `.devtools-overlay` marker); a later match wins, so a recipe here replaces a sample. The same file
 works with these docker2wsl commands (`rebuild-*` are shorthands for `--recipe`):
 
 | command | builds | where |
