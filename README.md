@@ -43,7 +43,7 @@ From PowerShell, in the clone:
 cd C:\code\devtools
 .\install.ps1                              # winget tools, docker.exe shim, user PATH, $PROFILE, Git Bash ~/.bashrc, cmd shims
 .\install.ps1 -Wsl Ubuntu-24.04,devnode    # also clone into those distros and run install.sh there
-.\install.ps1 -SkipTools -Overlay ..\devtools-private,..\devtools-unisys   # optional: link overlays
+.\install.ps1 -SkipTools -Overlay ..\devtools-private,..\devtools-work   # optional: link overlays
 .\tools\new-overlay.ps1 -Name devtools-foo   # new overlay repo from templates\overlay (docs\OVERLAY.md)
 ```
 

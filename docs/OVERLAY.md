@@ -1,15 +1,15 @@
 # Overlays: private aliases and scripts on top of devtools
 
-devtools holds only generic tooling. Aliases, hosts, image names, ssh material and scripts that belong to one person, employer, customer or machine go in an **overlay**: a separate directory, usually its own private git repo, that devtools loads after its own files. There can be several, for example `devtools-private` (yours, every machine) plus `devtools-unisys` (work machines only).
+devtools holds only generic tooling. Aliases, hosts, image names, ssh material and scripts that belong to one person, employer, customer or machine go in an **overlay**: a separate directory, usually its own private git repo, that devtools loads after its own files. There can be several, for example `devtools-private` (yours, every machine) plus `devtools-work` (work machines only).
 
 ## How devtools finds them
 
-`devtools/overlays/` holds one link per overlay, named after the overlay's folder. They load in **name order**, and a later overlay overrides an earlier one (aliases, functions, PATH). So `devtools-private` loads before `devtools-unisys`, and the work overlay wins where both define something. `DEVTOOLS_OVERLAYS` (a `:` list on Linux, `;` on Windows) replaces the whole list when set before `bashrc`/`zshrc`/`profile.ps1` run. The folder is gitignored.
+`devtools/overlays/` holds one link per overlay, named after the overlay's folder. They load in **name order**, and a later overlay overrides an earlier one (aliases, functions, PATH). So `devtools-private` loads before `devtools-work`, and the work overlay wins where both define something. `DEVTOOLS_OVERLAYS` (a `:` list on Linux, `;` on Windows) replaces the whole list when set before `bashrc`/`zshrc`/`profile.ps1` run. The folder is gitignored.
 
 | where | link | made by |
 |---|---|---|
-| Windows | `devtools\overlays\<name>` -> `..\<name>` (junction, no admin needed) | `.\install.ps1 -SkipTools -Overlay ..\devtools-private,..\devtools-unisys` |
-| WSL / Linux | `~/devtools/overlays/<name>` -> `~/<name>` (symlink) | `~/devtools/install.sh --overlay ~/devtools-private --overlay ~/devtools-unisys` |
+| Windows | `devtools\overlays\<name>` -> `..\<name>` (junction, no admin needed) | `.\install.ps1 -SkipTools -Overlay ..\devtools-private,..\devtools-work` |
+| WSL / Linux | `~/devtools/overlays/<name>` -> `~/<name>` (symlink) | `~/devtools/install.sh --overlay ~/devtools-private --overlay ~/devtools-work` |
 
 Both installers move the pre-2026-10-20 single `overlay` link into `overlays/` on their first run; it keeps working until then.
 
